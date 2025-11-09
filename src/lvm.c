@@ -1696,6 +1696,7 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
           L->top.p = ra + b;  /* top signals number of arguments */
         /* else previous instruction set top */
         savepc(L);  /* in case of errors */
+        LUA_PROF_VM_TICK(L);  /* after args/top/pc are set, before entering callee */
         if ((newci = luaD_precall(L, ra, nresults)) == NULL)
           updatetrap(ci);  /* C call; nothing else to be done */
         else {  /* Lua call: run function in this same C frame */
@@ -1716,6 +1717,7 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
         else  /* previous instruction set top */
           b = cast_int(L->top.p - ra);
         savepc(ci);  /* several calls here can raise errors */
+        LUA_PROF_VM_TICK(L);  /* after preparing state, before tailcall */
         if (TESTARG_k(i)) {
           luaF_closeupval(L, base);  /* close upvalues from current call */
           lua_assert(L->tbclist.p < base);  /* no pending tbc variables */
@@ -1748,8 +1750,9 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
         if (nparams1)  /* vararg function? */
           ci->func.p -= ci->u.l.nextraargs + nparams1;
         L->top.p = ra + n;  /* set call for 'luaD_poscall' */
-        luaD_poscall(L, ci, n);
+        /* sample before poscall so current frame is still visible */
         LUA_PROF_VM_TICK(L);
+        luaD_poscall(L, ci, n);
         updatetrap(ci);  /* 'luaD_poscall' can change hooks */
         goto ret;
       }
@@ -1758,17 +1761,19 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
           StkId ra = RA(i);
           L->top.p = ra;
           savepc(ci);
-          luaD_poscall(L, ci, 0);  /* no hurry... */
+          /* sample before poscall so current frame is still visible */
           LUA_PROF_VM_TICK(L);
+          luaD_poscall(L, ci, 0);  /* no hurry... */
           trap = 1;
         }
         else {  /* do the 'poscall' here */
           int nres;
+          /* sample before leaving current frame (before ret) */
+          LUA_PROF_VM_TICK(L);
           L->ci = ci->previous;  /* back to caller */
           L->top.p = base - 1;
           for (nres = ci->nresults; l_unlikely(nres > 0); nres--)
             setnilvalue(s2v(L->top.p++));  /* all results are nil */
-          LUA_PROF_VM_TICK(L);
         }
         goto ret;
       }
@@ -1777,12 +1782,15 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
           StkId ra = RA(i);
           L->top.p = ra + 1;
           savepc(ci);
-          luaD_poscall(L, ci, 1);  /* no hurry... */
+          /* sample before poscall so current frame is still visible */
           LUA_PROF_VM_TICK(L);
+          luaD_poscall(L, ci, 1);  /* no hurry... */
           trap = 1;
         }
         else {  /* do the 'poscall' here */
           int nres = ci->nresults;
+          /* sample before leaving current frame (before ret) */
+          LUA_PROF_VM_TICK(L);
           L->ci = ci->previous;  /* back to caller */
           if (nres == 0)
             L->top.p = base - 1;  /* asked for no results */
@@ -1793,7 +1801,6 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
             for (; l_unlikely(nres > 1); nres--)
               setnilvalue(s2v(L->top.p++));  /* complete missing results */
           }
-          LUA_PROF_VM_TICK(L);
         }
        ret:  /* return from a Lua function */
         if (ci->callstatus & CIST_FRESH)
