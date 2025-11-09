@@ -1137,6 +1137,20 @@ void luaV_finishOp (lua_State *L) {
            luai_threadyield(L); }
 
 
+/* profiler hook wrapper to avoid preprocessor directives inside macros */
+#ifdef LUA_PROF_TRAP
+extern void lua_prof_ontrap_n(lua_State *L, unsigned int n);
+#define LUA_PROF_VM_TICK(L) do { \
+  if (l_unlikely((L)->prof_ticks)) { \
+    unsigned int __n = (L)->prof_ticks; \
+    (L)->prof_ticks = 0; \
+    lua_prof_ontrap_n((L), __n); \
+  } \
+} while (0)
+#else
+#define LUA_PROF_VM_TICK(L) ((void)0)
+#endif
+
 /* fetch an instruction and prepare its execution */
 #define vmfetch()	{ \
   if (l_unlikely(trap)) {  /* stack reallocation or hooks? */ \
@@ -1735,6 +1749,7 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
           ci->func.p -= ci->u.l.nextraargs + nparams1;
         L->top.p = ra + n;  /* set call for 'luaD_poscall' */
         luaD_poscall(L, ci, n);
+        LUA_PROF_VM_TICK(L);
         updatetrap(ci);  /* 'luaD_poscall' can change hooks */
         goto ret;
       }
@@ -1744,6 +1759,7 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
           L->top.p = ra;
           savepc(ci);
           luaD_poscall(L, ci, 0);  /* no hurry... */
+          LUA_PROF_VM_TICK(L);
           trap = 1;
         }
         else {  /* do the 'poscall' here */
@@ -1752,6 +1768,7 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
           L->top.p = base - 1;
           for (nres = ci->nresults; l_unlikely(nres > 0); nres--)
             setnilvalue(s2v(L->top.p++));  /* all results are nil */
+          LUA_PROF_VM_TICK(L);
         }
         goto ret;
       }
@@ -1761,6 +1778,7 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
           L->top.p = ra + 1;
           savepc(ci);
           luaD_poscall(L, ci, 1);  /* no hurry... */
+          LUA_PROF_VM_TICK(L);
           trap = 1;
         }
         else {  /* do the 'poscall' here */
@@ -1775,6 +1793,7 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
             for (; l_unlikely(nres > 1); nres--)
               setnilvalue(s2v(L->top.p++));  /* complete missing results */
           }
+          LUA_PROF_VM_TICK(L);
         }
        ret:  /* return from a Lua function */
         if (ci->callstatus & CIST_FRESH)

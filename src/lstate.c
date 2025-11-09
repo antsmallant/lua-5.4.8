@@ -412,6 +412,11 @@ LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud) {
     close_state(L);
     L = NULL;
   }
+#ifdef LUA_PROF_TRAP
+  if (L) {
+    L->prof_ticks = 0;
+  }
+#endif
   return L;
 }
 

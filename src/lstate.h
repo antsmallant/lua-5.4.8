@@ -329,6 +329,10 @@ struct lua_State {
   int basehookcount;
   int hookcount;
   volatile l_signalT hookmask;
+#ifdef LUA_PROF_TRAP
+  /* async-signal-safe sampling counter, increased by timer signal handler */
+  volatile unsigned int prof_ticks;
+#endif
 };
 
 
