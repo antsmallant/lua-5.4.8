@@ -1,4 +1,4 @@
-#include "luaprof.h"
+#include "lprof.h"
 
 static lua_prof_cb_n_t g_lua_prof_cb_n = 0;
 
