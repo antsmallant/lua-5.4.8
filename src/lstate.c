@@ -22,6 +22,7 @@
 #include "lgc.h"
 #include "llex.h"
 #include "lmem.h"
+#include "lprofile.h"
 #include "lstate.h"
 #include "lstring.h"
 #include "ltable.h"
@@ -263,6 +264,7 @@ static void preinit_thread (lua_State *L, global_State *g) {
   L->status = LUA_OK;
   L->errfunc = 0;
   L->oldpc = 0;
+  luaP_initthread(L);
 }
 
 
@@ -281,6 +283,7 @@ static void close_state (lua_State *L) {
   luaM_freearray(L, G(L)->strt.hash, G(L)->strt.size);
   freestack(L);
   lua_assert(gettotalbytes(g) == sizeof(LG));
+  luaP_allocation(L, fromstate(L), NULL, sizeof(LG), 0, 1);
   (*g->frealloc)(g->ud, fromstate(L), sizeof(LG), 0);  /* free main block */
 }
 
@@ -347,6 +350,9 @@ LUA_API int lua_closethread (lua_State *L, lua_State *from) {
   lua_lock(L);
   L->nCcalls = (from) ? getCcalls(from) : 0;
   status = luaE_resetthread(L, L->status);
+  luaP_sethoststate(L);
+  if (from != NULL)
+    luaP_syncstate(from);
   lua_unlock(L);
   return status;
 }
@@ -379,6 +385,7 @@ LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud) {
   g->ud = ud;
   g->warnf = NULL;
   g->ud_warn = NULL;
+  luaP_initglobal(g);
   g->mainthread = L;
   g->seed = luai_makeseed(L);
   g->gcstp = GCSTPGC;  /* no GC while building state */
@@ -445,4 +452,3 @@ void luaE_warnerror (lua_State *L, const char *where) {
   luaE_warning(L, msg, 1);
   luaE_warning(L, ")", 0);
 }
-

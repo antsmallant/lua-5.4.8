@@ -300,6 +300,13 @@ typedef struct global_State {
   TString *strcache[STRCACHE_N][STRCACHE_M];  /* cache for strings in API */
   lua_WarnFunction warnf;  /* warning function */
   void *ud_warn;         /* auxiliary data to 'warnf' */
+#if defined(LUA_USE_LUAPROF)
+  lua_ProfileHooks profilehooks;
+  void *ud_profile;
+  lua_State *profilethread;
+  unsigned int profilepending;
+  lu_byte profileincallback;
+#endif
 } global_State;
 
 
@@ -329,6 +336,11 @@ struct lua_State {
   int basehookcount;
   int hookcount;
   volatile l_signalT hookmask;
+#if defined(LUA_USE_LUAPROF)
+  lu_byte profilestate;
+  lu_byte profilecaptureblocked;
+  lua_CFunction profilecfunction;
+#endif
 };
 
 
@@ -405,4 +417,3 @@ LUAI_FUNC int luaE_resetthread (lua_State *L, int status);
 
 
 #endif
-
