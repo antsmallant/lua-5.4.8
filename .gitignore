@@ -1,5 +1,7 @@
-install/
-src/*.o
-src/lua
-src/luac
-src/*.a
+/install/
+/src/*.o
+/src/*.a
+/src/*.dll
+/src/*.exe
+/src/lua
+/src/luac
